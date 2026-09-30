@@ -93,6 +93,8 @@ namespace dxvk::env {
     size_t count = readlink("/proc/self/exe", exePath.data(), exePath.size());
 
     return std::string(exePath.begin(), exePath.begin() + count);
+#elif defined(__EMSCRIPTEN__)
+    return "";
 #elif defined(__FreeBSD__)
     int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, getpid()};
     char exePath[PATH_MAX] = {};
@@ -124,7 +126,7 @@ namespace dxvk::env {
 
       SetThreadDescription(::GetCurrentThread(), wideName.data());
     }
-#else
+#elif !defined(__EMSCRIPTEN__)
     std::array<char, 16> posixName = {};
     dxvk::str::strlcpy(posixName.data(), name.c_str(), 16);
     ::pthread_setname_np(pthread_self(), posixName.data());
