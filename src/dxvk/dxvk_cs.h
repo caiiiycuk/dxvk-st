@@ -604,6 +604,8 @@ namespace dxvk {
     }
 
     void threadFunc();
+
+    void executeQueued();
     
   };
 

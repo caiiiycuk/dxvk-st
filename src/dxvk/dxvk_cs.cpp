@@ -98,9 +98,10 @@ namespace dxvk {
   DxvkCsThread::DxvkCsThread(
     const Rc<DxvkDevice>&   device,
     const Rc<DxvkContext>&  context)
-  : m_device(device), m_context(context),
-    m_thread([this] { threadFunc(); }) {
-    
+  : m_device(device), m_context(context) {
+#ifndef DXVK_SINGLE_THREADED
+    m_thread = dxvk::thread([this] { threadFunc(); });
+#endif
   }
   
   
@@ -109,8 +110,10 @@ namespace dxvk {
       m_stopped.store(true);
     }
     
+#ifndef DXVK_SINGLE_THREADED
     m_condOnAdd.notify_one();
     m_thread.join();
+#endif
   }
   
   
@@ -126,7 +129,10 @@ namespace dxvk {
 
       m_condOnAdd.notify_one();
     }
-    
+
+#ifdef DXVK_SINGLE_THREADED
+    executeQueued();
+#endif
     return seq;
   }
 
@@ -152,6 +158,10 @@ namespace dxvk {
         m_hasHighPrio.store(true, std::memory_order_release);
       }
     }
+
+#ifdef DXVK_SINGLE_THREADED
+    executeQueued();
+#endif
 
     if (synchronize) {
       std::unique_lock<dxvk::mutex> lock(m_counterMutex);
@@ -193,11 +203,6 @@ namespace dxvk {
   void DxvkCsThread::threadFunc() {
     env::setThreadName("dxvk-cs");
 
-    // Local chunk queues, we use two queues and swap between
-    // them in order to potentially reduce lock contention.
-    std::vector<DxvkCsQueuedChunk> ordered;
-    std::vector<DxvkCsQueuedChunk> highPrio;
-
     try {
       while (!m_stopped.load()) {
         { std::unique_lock<dxvk::mutex> lock(m_mutex);
@@ -218,59 +223,68 @@ namespace dxvk {
             auto t1 = dxvk::high_resolution_clock::now();
             m_device->addStatCtr(DxvkStatCounter::CsIdleTicks, std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count());
           }
-
-          std::swap(ordered, m_queueOrdered.queue);
-          std::swap(highPrio, m_queueHighPrio.queue);
-
-          m_hasHighPrio.store(false, std::memory_order_release);
         }
 
-        size_t orderedIndex = 0u;
-        size_t highPrioIndex = 0u;
-
-        while (highPrioIndex < highPrio.size() || orderedIndex < ordered.size()) {
-          // Re-fill local high-priority queue if the app has queued anything up
-          // in the meantime, we want to reduce possible synchronization delays.
-          if (highPrioIndex >= highPrio.size() && m_hasHighPrio.load(std::memory_order_acquire)) {
-            highPrio.clear();
-            highPrioIndex = 0u;
-
-            std::unique_lock<dxvk::mutex> lock(m_mutex);
-            std::swap(highPrio, m_queueHighPrio.queue);
-
-            m_hasHighPrio.store(false, std::memory_order_release);
-          }
-
-          // Drain high-priority queue first
-          bool isHighPrio = highPrioIndex < highPrio.size();
-          auto& entry = isHighPrio ? highPrio[highPrioIndex++] : ordered[orderedIndex++];
-
-          m_context->addStatCtr(DxvkStatCounter::CsChunkCount, 1);
-
-          entry.chunk->executeAll(m_context.ptr());
-
-          if (entry.seq) {
-            // Use a separate mutex for the chunk counter, this will only
-            // ever be contested if synchronization is actually necessary.
-            std::lock_guard lock(m_counterMutex);
-
-            auto& counter = isHighPrio ? m_seqHighPrio : m_seqOrdered;
-            counter.store(entry.seq, std::memory_order_release);
-
-            m_condOnSync.notify_one();
-          }
-
-          // Immediately free the chunk to release
-          // references to any resources held by it
-          entry.chunk = DxvkCsChunkRef();
-        }
-
-        ordered.clear();
-        highPrio.clear();
+        executeQueued();
       }
     } catch (const DxvkError& e) {
       Logger::err("Exception on CS thread!");
       Logger::err(e.message());
+    }
+  }
+
+
+  void DxvkCsThread::executeQueued() {
+    // Local chunk queues, we use two queues and swap between
+    // them in order to potentially reduce lock contention.
+    std::vector<DxvkCsQueuedChunk> ordered;
+    std::vector<DxvkCsQueuedChunk> highPrio;
+
+    { std::unique_lock<dxvk::mutex> lock(m_mutex);
+      std::swap(ordered, m_queueOrdered.queue);
+      std::swap(highPrio, m_queueHighPrio.queue);
+
+      m_hasHighPrio.store(false, std::memory_order_release);
+    }
+
+    size_t orderedIndex = 0u;
+    size_t highPrioIndex = 0u;
+
+    while (highPrioIndex < highPrio.size() || orderedIndex < ordered.size()) {
+      // Re-fill local high-priority queue if the app has queued anything up
+      // in the meantime, we want to reduce possible synchronization delays.
+      if (highPrioIndex >= highPrio.size() && m_hasHighPrio.load(std::memory_order_acquire)) {
+        highPrio.clear();
+        highPrioIndex = 0u;
+
+        std::unique_lock<dxvk::mutex> lock(m_mutex);
+        std::swap(highPrio, m_queueHighPrio.queue);
+
+        m_hasHighPrio.store(false, std::memory_order_release);
+      }
+
+      // Drain high-priority queue first
+      bool isHighPrio = highPrioIndex < highPrio.size();
+      auto& entry = isHighPrio ? highPrio[highPrioIndex++] : ordered[orderedIndex++];
+
+      m_context->addStatCtr(DxvkStatCounter::CsChunkCount, 1);
+
+      entry.chunk->executeAll(m_context.ptr());
+
+      if (entry.seq) {
+        // Use a separate mutex for the chunk counter, this will only
+        // ever be contested if synchronization is actually necessary.
+        std::lock_guard lock(m_counterMutex);
+
+        auto& counter = isHighPrio ? m_seqHighPrio : m_seqOrdered;
+        counter.store(entry.seq, std::memory_order_release);
+
+        m_condOnSync.notify_one();
+      }
+
+      // Immediately free the chunk to release
+      // references to any resources held by it
+      entry.chunk = DxvkCsChunkRef();
     }
   }
   
