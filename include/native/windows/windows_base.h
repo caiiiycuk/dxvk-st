@@ -305,8 +305,13 @@ typedef struct RGNDATA {
 #define STDMETHOD_(type, name) type (STDMETHODCALLTYPE *name)
 #endif // __cplusplus
 
+#ifdef __cplusplus
 #define THIS_
 #define THIS
+#else
+#define THIS_ INTERFACE *This,
+#define THIS  INTERFACE *This
+#endif // __cplusplus
 
 #define __C89_NAMELESSSTRUCTNAME
 #define __C89_NAMELESSUNIONNAME
