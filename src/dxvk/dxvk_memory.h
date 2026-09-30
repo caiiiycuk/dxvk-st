@@ -1108,7 +1108,9 @@ namespace dxvk {
 
     // Minimal set of buffer usage flags to consider for global buffers
     constexpr static VkBufferUsageFlags MinGlobalBufferUsage =
+#ifndef DXVK_WEBGPU_TARGET
       VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+#endif
       VK_BUFFER_USAGE_TRANSFER_DST_BIT |
       VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 

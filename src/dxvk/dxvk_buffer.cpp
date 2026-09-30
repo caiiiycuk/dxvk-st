@@ -28,7 +28,9 @@ namespace dxvk {
     }
 
     // Unconditionally enable BDA usage
+#ifndef DXVK_WEBGPU_TARGET
     m_info.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+#endif
 
     // Create and assign actual buffer resource
     assignStorage(allocateStorage());

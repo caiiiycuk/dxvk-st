@@ -705,6 +705,13 @@ namespace dxvk {
         &m_featuresEnabled.ext.name,                      \
         require, #name }
 
+    // WebGPU target: features the vkwgpu layer cannot provide become optional.
+#ifdef DXVK_WEBGPU_TARGET
+    constexpr bool wgpu = false;
+#else
+    constexpr bool wgpu = true;
+#endif
+
     return {{
       ENABLE_FEATURE(core.features, depthBiasClamp, true),
       ENABLE_FEATURE(core.features, depthBounds, false),
@@ -714,11 +721,11 @@ namespace dxvk {
       ENABLE_FEATURE(core.features, fillModeNonSolid, true),
       ENABLE_FEATURE(core.features, fragmentStoresAndAtomics, false),
       ENABLE_FEATURE(core.features, fullDrawIndexUint32, true),
-      ENABLE_FEATURE(core.features, geometryShader, true),
+      ENABLE_FEATURE(core.features, geometryShader, wgpu),
       ENABLE_FEATURE(core.features, imageCubeArray, true),
       ENABLE_FEATURE(core.features, independentBlend, true),
       ENABLE_FEATURE(core.features, logicOp, false),
-      ENABLE_FEATURE(core.features, multiDrawIndirect, true),
+      ENABLE_FEATURE(core.features, multiDrawIndirect, wgpu),
       ENABLE_FEATURE(core.features, multiViewport, true),
       ENABLE_FEATURE(core.features, occlusionQueryPrecise, true),
       ENABLE_FEATURE(core.features, pipelineStatisticsQuery, false),
@@ -730,7 +737,7 @@ namespace dxvk {
       ENABLE_FEATURE(core.features, shaderFloat64, false),
       ENABLE_FEATURE(core.features, shaderImageGatherExtended, true),
       ENABLE_FEATURE(core.features, shaderInt16, false),
-      ENABLE_FEATURE(core.features, shaderInt64, true),
+      ENABLE_FEATURE(core.features, shaderInt64, wgpu),
       ENABLE_FEATURE(core.features, shaderSampledImageArrayDynamicIndexing, true),
       ENABLE_FEATURE(core.features, sparseBinding, false),
       ENABLE_FEATURE(core.features, sparseResidencyBuffer, false),
@@ -752,7 +759,7 @@ namespace dxvk {
       ENABLE_FEATURE(vk11, shaderDrawParameters, true),
       ENABLE_FEATURE(vk11, storagePushConstant16, false),
 
-      ENABLE_FEATURE(vk12, bufferDeviceAddress, true),
+      ENABLE_FEATURE(vk12, bufferDeviceAddress, wgpu),
       ENABLE_FEATURE(vk12, descriptorIndexing, true),
       ENABLE_FEATURE(vk12, descriptorBindingSampledImageUpdateAfterBind, true),
       ENABLE_FEATURE(vk12, descriptorBindingUpdateUnusedWhilePending, true),
@@ -767,13 +774,13 @@ namespace dxvk {
       ENABLE_FEATURE(vk12, shaderOutputLayer, false),
       ENABLE_FEATURE(vk12, timelineSemaphore, true),
       ENABLE_FEATURE(vk12, uniformBufferStandardLayout, true),
-      ENABLE_FEATURE(vk12, vulkanMemoryModel, true),
+      ENABLE_FEATURE(vk12, vulkanMemoryModel, wgpu),
 
       ENABLE_FEATURE(vk13, dynamicRendering, true),
       ENABLE_FEATURE(vk13, maintenance4, true),
       ENABLE_FEATURE(vk13, robustImageAccess, false),
       ENABLE_FEATURE(vk13, pipelineCreationCacheControl, false),
-      ENABLE_FEATURE(vk13, shaderDemoteToHelperInvocation, true),
+      ENABLE_FEATURE(vk13, shaderDemoteToHelperInvocation, wgpu),
       ENABLE_FEATURE(vk13, shaderZeroInitializeWorkgroupMemory, true),
       ENABLE_FEATURE(vk13, synchronization2, true),
 

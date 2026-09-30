@@ -78,6 +78,10 @@ namespace dxvk {
 
   void SpirvModule::enableCapability(
           spv::Capability         capability) {
+#ifdef DXVK_WEBGPU_TARGET
+    if (capability == spv::CapabilityDemoteToHelperInvocationEXT)
+      return;
+#endif
     // Scan the generated instructions to check
     // whether we already enabled the capability.
     if (!hasCapability(capability)) {
@@ -89,6 +93,10 @@ namespace dxvk {
   
   void SpirvModule::enableExtension(
     const char*                   extensionName) {
+#ifdef DXVK_WEBGPU_TARGET
+    if (!std::strcmp(extensionName, "SPV_EXT_demote_to_helper_invocation"))
+      return;
+#endif
     m_extensions.putIns (spv::OpExtension, 1 + m_extensions.strLen(extensionName));
     m_extensions.putStr (extensionName);
   }
@@ -3686,6 +3694,10 @@ namespace dxvk {
   
   void SpirvModule::opBranch(
           uint32_t                label) {
+#ifdef DXVK_WEBGPU_TARGET
+    if (!m_blockId)
+      return;
+#endif
     m_code.putIns (spv::OpBranch, 2);
     m_code.putWord(label);
 
@@ -3750,7 +3762,14 @@ namespace dxvk {
   
   
   void SpirvModule::opDemoteToHelperInvocation() {
+#ifdef DXVK_WEBGPU_TARGET
+    // Tint has no OpDemoteToHelperInvocation; OpKill maps to WGSL discard.
+    // OpKill terminates the block, so opBranch() drops the branch that follows.
+    m_code.putIns (spv::OpKill, 1);
+    m_blockId = 0;
+#else
     m_code.putIns (spv::OpDemoteToHelperInvocation, 1);
+#endif
   }
   
   

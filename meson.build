@@ -184,6 +184,10 @@ if get_option('single_threaded')
   compiler_args += ['-DDXVK_SINGLE_THREADED']
 endif
 
+if get_option('webgpu_target')
+  compiler_args += ['-DDXVK_WEBGPU_TARGET']
+endif
+
 dxvk_include_path = include_directories(dxvk_include_dirs)
 
 add_project_arguments(cpp.get_supported_arguments(compiler_args), language: 'cpp')

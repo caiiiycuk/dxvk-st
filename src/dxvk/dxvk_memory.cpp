@@ -1917,8 +1917,11 @@ namespace dxvk {
                              | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
                              | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
                              | VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT
-                             | VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT
-                             | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+                             | VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
+
+#ifndef DXVK_WEBGPU_TARGET
+    flags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+#endif
 
     if (m_device->features().extTransformFeedback.transformFeedback) {
       flags |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT
@@ -2169,6 +2172,9 @@ namespace dxvk {
 
 
   VkDeviceAddress DxvkMemoryAllocator::getBufferDeviceAddress(VkBuffer buffer) const {
+#ifdef DXVK_WEBGPU_TARGET
+    return 0u;
+#endif
     auto vk = m_device->vkd();
 
     VkBufferDeviceAddressInfo bdaInfo = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO };
