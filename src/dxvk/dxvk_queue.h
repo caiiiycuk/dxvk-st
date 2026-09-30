@@ -166,7 +166,16 @@ namespace dxvk {
     template<typename Pred>
     void synchronizeUntil(const Pred& pred) {
       std::unique_lock<dxvk::mutex> lock(m_mutex);
+#ifdef DXVK_SINGLE_THREADED
+      // Nothing runs in the background, so a false predicate here
+      // would never turn true. Fail loudly instead of hanging.
+      if (!pred()) {
+        Logger::err("DxvkSubmissionQueue::synchronizeUntil: condition cannot be met in single-threaded build");
+        std::abort();
+      }
+#else
       m_finishCond.wait(lock, pred);
+#endif
     }
 
     /**
@@ -218,9 +227,22 @@ namespace dxvk {
     dxvk::thread                m_submitThread;
     dxvk::thread                m_finishThread;
 
+    uint64_t                    m_trackedSubmitId  = 0u;
+    uint64_t                    m_trackedPresentId = 0u;
+
     void submitCmdLists();
 
+    void submitEntry(DxvkSubmitEntry&& entry);
+
     void finishCmdLists();
+
+    void finishEntry();
+
+#ifdef DXVK_SINGLE_THREADED
+    void assertDrained(const char* where);
+
+    void processInline();
+#endif
     
   };
   
