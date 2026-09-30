@@ -2,7 +2,9 @@
 
 namespace dxvk {
 
+#ifndef DXVK_STATIC_DLLS
   Logger Logger::s_instance("d3d8.log");
+#endif
 
   HRESULT CreateD3D8(IDirect3D8** ppDirect3D8) {
     if (!ppDirect3D8)
@@ -112,7 +114,9 @@ extern "C" {
     return res;
   }
 
+#ifndef DXVK_STATIC_DLLS
   DLLEXPORT void __stdcall DebugSetMute() {}
+#endif
 
   DLLEXPORT IDirect3D8* __stdcall Direct3DCreate8(UINT nSDKVersion) {
     IDirect3D8* pDirect3D = nullptr;

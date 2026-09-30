@@ -24,6 +24,14 @@ if platform != 'windows'
   d3d8_link_depends += files('d3d8.sym')
 endif
 
+if get_option('static_dlls')
+d3d8_dll = static_library(dxvk_name_prefix+'d3d8', d3d8_src, d3d8_res,
+  dependencies        : [ lib_d3d9, util_dep, dxso_dep, dxvk_dep ],
+  include_directories : dxvk_include_path,
+  cpp_args            : [ '-DDXVK_STATIC_DLLS' ],
+  install             : true,
+)
+else
 d3d8_dll = shared_library(dxvk_name_prefix+'d3d8', d3d8_src, d3d8_res,
   dependencies        : [ lib_d3d9, util_dep, dxso_dep, dxvk_dep ],
   include_directories : dxvk_include_path,
@@ -33,13 +41,14 @@ d3d8_dll = shared_library(dxvk_name_prefix+'d3d8', d3d8_src, d3d8_res,
   link_depends        : [ d3d8_link_depends ],
   kwargs              : dxvk_so_version,
 )
+endif
 
 d3d8_dep = declare_dependency(
   link_with           : [ d3d8_dll ],
   include_directories : [ dxvk_include_path ],
 )
 
-if platform != 'windows'
+if platform != 'windows' and not get_option('static_dlls')
   pkg.generate(d3d8_dll,
     filebase: dxvk_pkg_prefix + 'd3d8',
     subdirs:  'dxvk',
