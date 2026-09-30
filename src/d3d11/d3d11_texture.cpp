@@ -339,7 +339,7 @@ namespace dxvk {
     if (imageInfo.flags & VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT) {
       // Check whether the given combination of image
       // view type and view format is actually supported
-      VkFormatFeatureFlags2 features = GetImageFormatFeatures(BindFlags);
+      VkFormatFeatureFlags2 features = GetBindFlagsFormatFeatures(BindFlags);
       
       if (!CheckFormatFeatureSupport(viewFormat.Format, features))
         return false;

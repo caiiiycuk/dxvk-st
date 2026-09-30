@@ -15,6 +15,14 @@ else
   d3d10_d3d11_dep = d3d11_dep
 endif
 
+if get_option('static_dlls')
+d3d10_core_dll = static_library(dxvk_name_prefix+'d3d10core', d3d10_core_src, d3d10_core_res,
+  dependencies        : [ d3d10_d3d11_dep ],
+  include_directories : dxvk_include_path,
+  cpp_args            : [ '-DDXVK_STATIC_DLLS' ],
+  install             : true,
+)
+else
 d3d10_core_dll = shared_library(dxvk_name_prefix+'d3d10core', d3d10_core_src, d3d10_core_res,
   dependencies        : [ d3d10_d3d11_dep ],
   include_directories : dxvk_include_path,
@@ -24,12 +32,13 @@ d3d10_core_dll = shared_library(dxvk_name_prefix+'d3d10core', d3d10_core_src, d3
   link_depends        : [ d3d10_core_link_depends ],
   kwargs              : dxvk_so_version,
 )
+endif
 
 d3d10_core_dep = declare_dependency(
   link_with           : [ d3d10_core_dll ],
 )
 
-if platform != 'windows'
+if platform != 'windows' and not get_option('static_dlls')
   pkg.generate(d3d10_core_dll,
     filebase: dxvk_pkg_prefix + 'd3d10core',
     subdirs:  'dxvk',

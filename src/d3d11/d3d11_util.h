@@ -37,7 +37,7 @@ namespace dxvk {
   VkFormatFeatureFlags2 GetBufferFormatFeatures(
           UINT                      BindFlags);
 
-  VkFormatFeatureFlags2 GetImageFormatFeatures(
+  VkFormatFeatureFlags2 GetBindFlagsFormatFeatures(
           UINT                      BindFlags);
   
   VkFormat GetPackedDepthStencilFormat(

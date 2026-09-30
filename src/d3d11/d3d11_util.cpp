@@ -103,7 +103,7 @@ namespace dxvk {
   }
 
 
-  VkFormatFeatureFlags2 GetImageFormatFeatures(UINT BindFlags) {
+  VkFormatFeatureFlags2 GetBindFlagsFormatFeatures(UINT BindFlags) {
     VkFormatFeatureFlags2 features = 0;
 
     if (BindFlags & D3D11_BIND_DEPTH_STENCIL)

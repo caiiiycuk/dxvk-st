@@ -77,6 +77,15 @@ else
   d3d11_dxgi_dep = dxgi_dep
 endif
 
+if get_option('static_dlls')
+d3d11_dll = static_library(dxvk_name_prefix+'d3d11', dxgi_common_src + d3d11_src + d3d10_src,
+    glsl_generator.process(d3d11_shaders), d3d11_res,
+  dependencies        : [ d3d11_dxgi_dep, dxbc_dep, dxvk_dep ],
+  include_directories : dxvk_include_path,
+  cpp_args            : [ '-DDXVK_STATIC_DLLS' ],
+  install             : true,
+)
+else
 d3d11_dll = shared_library(dxvk_name_prefix+'d3d11', dxgi_common_src + d3d11_src + d3d10_src,
     glsl_generator.process(d3d11_shaders), d3d11_res,
   dependencies        : [ d3d11_dxgi_dep, dxbc_dep, dxvk_dep ],
@@ -87,13 +96,14 @@ d3d11_dll = shared_library(dxvk_name_prefix+'d3d11', dxgi_common_src + d3d11_src
   link_depends        : [ d3d11_link_depends ],
   kwargs              : dxvk_so_version,
 )
+endif
 
 d3d11_dep = declare_dependency(
   link_with           : [ d3d11_dll ],
   include_directories : [ dxvk_include_path ],
 )
 
-if platform != 'windows'
+if platform != 'windows' and not get_option('static_dlls')
   pkg.generate(d3d11_dll,
     filebase: dxvk_pkg_prefix + 'd3d11',
     subdirs:  'dxvk',

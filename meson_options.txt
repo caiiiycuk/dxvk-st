@@ -1,4 +1,4 @@
-option('static_dlls',  type : 'boolean', value : false, description: 'Build d3d9/d3d8 as static libraries (no version scripts, no pkg-config)')
+option('static_dlls',  type : 'boolean', value : false, description: 'Build d3d8/d3d9/d3d10core/d3d11/dxgi as static libraries (no version scripts, no pkg-config; Logger lives in d3d9)')
 option('enable_dxgi',  type : 'boolean', value : true, description: 'Build DXGI')
 option('enable_d3d8',  type : 'boolean', value : true, description: 'Build D3D8')
 option('enable_d3d9',  type : 'boolean', value : true, description: 'Build D3D9')

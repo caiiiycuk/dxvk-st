@@ -3,7 +3,9 @@
 
 namespace dxvk {
   
+#ifndef DXVK_STATIC_DLLS
   Logger Logger::s_instance("dxgi.log");
+#endif
   
   HRESULT createDxgiFactory(UINT Flags, REFIID riid, void **ppFactory) {
     try {
