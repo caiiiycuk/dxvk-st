@@ -9,8 +9,10 @@ namespace dxvk {
     m_appendFence   (new sync::Fence()),
     m_consumeFence  (new sync::Fence()),
     m_writeBufferDescriptorsFn(getWriteBufferDescriptorFn()) {
+#ifndef DXVK_SINGLE_THREADED
     if (m_device->canUseDescriptorBuffer())
       m_thread = std::thread([this] { runWorker(); });
+#endif
   }
 
 

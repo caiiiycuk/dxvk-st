@@ -20,6 +20,11 @@ namespace dxvk {
   void DxvkPipelineWorkers::compilePipelineLibrary(
           DxvkShaderPipelineLibrary*      library,
           DxvkPipelinePriority            priority) {
+#ifdef DXVK_SINGLE_THREADED
+    m_tasksTotal += 1;
+    library->compilePipeline();
+    m_tasksCompleted += 1;
+#else
     std::unique_lock lock(m_lock);
     this->startWorkers();
 
@@ -27,6 +32,7 @@ namespace dxvk {
 
     m_buckets[uint32_t(priority)].queue.emplace(library);
     notifyWorkers(priority);
+#endif
   }
 
 
@@ -34,6 +40,17 @@ namespace dxvk {
           DxvkGraphicsPipeline*           pipeline,
     const DxvkGraphicsPipelineStateInfo&  state,
           DxvkPipelinePriority            priority) {
+#ifdef DXVK_SINGLE_THREADED
+    // Callers release their pipeline lock before dispatching, so the
+    // optimized variant can be compiled right here on the calling thread.
+    pipeline->acquirePipeline();
+    m_tasksTotal += 1;
+
+    pipeline->compilePipeline(state);
+    pipeline->releasePipeline();
+
+    m_tasksCompleted += 1;
+#else
     std::unique_lock lock(m_lock);
     this->startWorkers();
 
@@ -42,6 +59,7 @@ namespace dxvk {
 
     m_buckets[uint32_t(priority)].queue.emplace(pipeline, state);
     notifyWorkers(priority);
+#endif
   }
 
 
@@ -80,6 +98,9 @@ namespace dxvk {
 
 
   void DxvkPipelineWorkers::startWorkers() {
+#ifdef DXVK_SINGLE_THREADED
+    return;
+#endif
     if (!std::exchange(m_workersRunning, true)) {
       // Use all available cores by default
       uint32_t workerCount = dxvk::thread::hardware_concurrency();

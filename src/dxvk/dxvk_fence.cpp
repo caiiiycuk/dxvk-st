@@ -74,6 +74,11 @@ namespace dxvk {
 
   void DxvkFence::enqueueWait(uint64_t value, DxvkFenceEvent&& event) {
     if (value > getValue()) {
+#ifdef DXVK_SINGLE_THREADED
+      // No waiter thread: block here and fire the event in order
+      wait(value);
+      event();
+#else
       std::unique_lock<dxvk::mutex> lock(m_mutex);
       m_queue.emplace(value, std::move(event));
 
@@ -84,6 +89,7 @@ namespace dxvk {
         m_condVar.notify_one();
       }
       lock.unlock();
+#endif
     } else {
       event();
     }

@@ -42,8 +42,10 @@ namespace dxvk {
 
     // If a frame signal was provided, launch thread that synchronizes
     // with present operations and periodically signals the event
-    if (m_device->features().khrPresentWait.presentWait && m_signal != nullptr)
+#ifndef DXVK_SINGLE_THREADED
+    if (useFrameThread() && m_signal != nullptr)
       m_frameThread = dxvk::thread([this] { runFrameThread(); });
+#endif
   }
 
   
@@ -218,7 +220,7 @@ namespace dxvk {
     }
 
     // Add frame to waiter queue with current properties
-    if (m_device->features().khrPresentWait.presentWait) {
+    if (useFrameThread()) {
       std::lock_guard lock(m_frameMutex);
 
       auto& frame = m_frameQueue.emplace();
@@ -263,7 +265,7 @@ namespace dxvk {
     if (m_signal == nullptr || !frameId)
       return;
 
-    if (m_device->features().khrPresentWait.presentWait) {
+    if (useFrameThread()) {
       bool canSignal = false;
 
       { std::unique_lock lock(m_frameMutex);
@@ -1229,6 +1231,17 @@ namespace dxvk {
       Logger::err(str::format("Presenter: Failed to reset WSI fence: ", vr));
 
     sync.fenceSignaled = VK_FALSE;
+  }
+
+
+  bool Presenter::useFrameThread() const {
+#ifdef DXVK_SINGLE_THREADED
+    // No worker to wait on present IDs; frames are signaled
+    // directly from signalFrame like on drivers without presentWait.
+    return false;
+#else
+    return m_device->features().khrPresentWait.presentWait;
+#endif
   }
 
 

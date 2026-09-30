@@ -271,7 +271,12 @@ namespace dxvk {
      * \returns \c true if all required features are supported.
      */
     bool canUseDescriptorBuffer() const {
+#ifdef DXVK_SINGLE_THREADED
+      // Descriptor buffers need the asynchronous copy worker
+      return false;
+#else
       return m_features.extDescriptorBuffer.descriptorBuffer;
+#endif
     }
 
     /**

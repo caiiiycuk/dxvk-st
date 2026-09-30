@@ -379,6 +379,8 @@ namespace dxvk {
     void waitForSwapchainFence(
             PresenterSync&            sync);
 
+    bool useFrameThread() const;
+
     void runFrameThread();
 
     static VkResult softError(

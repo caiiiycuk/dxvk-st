@@ -342,8 +342,10 @@ namespace dxvk {
 
     m_eventMap.insert({ cookie, hEvent });
 
+#ifndef DXVK_SINGLE_THREADED
     if (!m_eventThread.joinable())
       m_eventThread = dxvk::thread([this] { runEventThread(); });
+#endif
 
     // This method seems to fire the
     // event immediately on Windows
