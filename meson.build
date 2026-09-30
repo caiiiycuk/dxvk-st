@@ -159,8 +159,12 @@ else
   if lib_glfw.found()
     compiler_args += ['-DDXVK_WSI_GLFW']
   endif
-  if (not lib_sdl3.found() and not lib_sdl2.found() and not lib_glfw.found())
-    error('SDL3, SDL2, or GLFW are required to build dxvk-native')
+  wsi_headless = get_option('native_headless').enabled()
+  if wsi_headless
+    compiler_args += ['-DDXVK_WSI_HEADLESS']
+  endif
+  if (not lib_sdl3.found() and not lib_sdl2.found() and not lib_glfw.found() and not wsi_headless)
+    error('SDL3, SDL2, GLFW or headless WSI are required to build dxvk-native')
   endif
   
   dxvk_name_prefix = 'dxvk_'
