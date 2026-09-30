@@ -176,6 +176,10 @@ else
   ]
 endif
 
+if get_option('gipa_symbol') != ''
+  compiler_args += ['-DDXVK_VULKAN_GIPA=' + get_option('gipa_symbol')]
+endif
+
 dxvk_include_path = include_directories(dxvk_include_dirs)
 
 add_project_arguments(cpp.get_supported_arguments(compiler_args), language: 'cpp')

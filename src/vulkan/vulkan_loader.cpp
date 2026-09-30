@@ -7,8 +7,18 @@
 #include "../util/util_string.h"
 #include "../util/util_win32_compat.h"
 
+#ifdef DXVK_VULKAN_GIPA
+extern "C" PFN_vkVoidFunction DXVK_VULKAN_GIPA(VkInstance instance, const char* name);
+#endif
+
 namespace dxvk::vk {
 
+#ifdef DXVK_VULKAN_GIPA
+  static std::pair<HMODULE, PFN_vkGetInstanceProcAddr> loadVulkanLibrary() {
+    Logger::info("Vulkan: Using built-in vkGetInstanceProcAddr");
+    return std::make_pair(HMODULE(nullptr), &DXVK_VULKAN_GIPA);
+  }
+#else
   static std::pair<HMODULE, PFN_vkGetInstanceProcAddr> loadVulkanLibrary() {
     static const std::array<const char*, 2> dllNames = {{
 #ifdef _WIN32
@@ -40,6 +50,7 @@ namespace dxvk::vk {
     Logger::err("Vulkan: vkGetInstanceProcAddr not found");
     return { };
   }
+#endif
 
   LibraryLoader::LibraryLoader() {
     std::tie(m_library, m_getInstanceProcAddr) = loadVulkanLibrary();
