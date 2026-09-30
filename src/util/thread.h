@@ -2,6 +2,8 @@
 
 #include <chrono>
 #include <condition_variable>
+#include <cstdio>
+#include <cstdlib>
 #include <functional>
 #include <mutex>
 #include <thread>
@@ -308,7 +310,19 @@ namespace dxvk {
 #else
   class thread : public std::thread {
   public:
+#ifdef DXVK_SINGLE_THREADED
+    thread() = default;
+    thread(thread&&) = default;
+    thread& operator = (thread&&) = default;
+
+    template<typename Proc, typename... Args>
+    explicit thread(Proc&&, Args&&...) {
+      std::fputs("dxvk: thread creation in single-threaded build\n", stderr);
+      std::abort();
+    }
+#else
     using std::thread::thread;
+#endif
 
     void set_priority(ThreadPriority priority) {
       ::sched_param param = {};
