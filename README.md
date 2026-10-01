@@ -103,6 +103,29 @@ In games that load their shaders during loading screens or in the menu, this can
 
 ## Build instructions
 
+### Building with CMake (static D3D8/D3D9, non-Windows)
+
+Alongside meson, `CMakeLists.txt` builds the static D3D8/D3D9 stack (headless WSI
+only; DXGI/D3D10/D3D11 are not ported). It needs `glslang`, `python3` and a
+C++17 compiler; cross-compiling with `emcmake cmake` works the same way.
+
+```
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DDXVK_GIPA_SYMBOL=vkdawn_GetInstanceProcAddr -DDXVK_SINGLE_THREADED=ON -DDXVK_WEBGPU_TARGET=ON
+cmake --build build
+```
+
+Options (meson equivalents in parentheses): `DXVK_STATIC_DLLS` (`static_dlls`, must stay ON),
+`DXVK_ENABLE_D3D8` / `DXVK_ENABLE_D3D9` (`enable_d3d8` / `enable_d3d9`),
+`DXVK_NATIVE_HEADLESS` (`native_headless`, must stay ON), `DXVK_GIPA_SYMBOL` (`gipa_symbol`),
+`DXVK_SINGLE_THREADED` (`single_threaded`), `DXVK_WEBGPU_TARGET` (`webgpu_target`), and
+`DXVK_TARGET_SUFFIX`, which is appended to every target name so one tree can
+`add_subdirectory()` this project twice with different options. Consumers link
+`dxvk::d3d9` or `dxvk::d3d8` (with the suffix appended), which carry the include
+paths and a link group over the nine static libraries.
+
+### Building with meson
+
 In order to pull in all submodules that are needed for building, clone the repository using the following command:
 ```
 git clone --recursive https://github.com/doitsujin/dxvk.git
