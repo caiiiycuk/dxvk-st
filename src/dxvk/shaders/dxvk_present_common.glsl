@@ -55,8 +55,8 @@ vec4 composite_image(vec4 color) {
 
     if (max(rel_ofs.x, rel_ofs.y) >= 0 && all(lessThan(rel_ofs, cursor_extent))) {
       color = blend_linear_sdr(color,
-        texture(sampler2D(s_cursor, s_samplers[sampler_cursor]),
-        vec2(rel_ofs) / vec2(cursor_extent)));
+        textureLod(sampler2D(s_cursor, s_samplers[sampler_cursor]),
+        vec2(rel_ofs) / vec2(cursor_extent), 0.0f));  // explicit LOD: WGSL forbids implicit-LOD sampling in non-uniform control flow
     }
   }
 

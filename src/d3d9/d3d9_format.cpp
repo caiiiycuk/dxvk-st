@@ -524,6 +524,11 @@ namespace dxvk {
           D3D9Format          Format) const {
     D3D9_VK_FORMAT_MAPPING mapping = ConvertFormatUnfixed(Format);
 
+#ifdef DXVK_WEBGPU_TARGET
+    if (mapping.ConversionFormatInfo.FormatType != D3D9ConversionFormat_None)
+      return D3D9_VK_FORMAT_MAPPING();
+#endif
+
     if (Format == D3D9Format::X4R4G4B4 && !m_x4r4g4b4Support)
       return D3D9_VK_FORMAT_MAPPING();
 

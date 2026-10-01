@@ -79,12 +79,17 @@ namespace dxvk {
     specInfo.dataSize = sizeof(key);
     specInfo.pData = &key;
 
+#ifdef DXVK_WEBGPU_TARGET
+    // No geometry shaders and no gl_Layer in WGSL: fullscreen pass hits layer 0 only.
+    state.vs = util::DxvkBuiltInShaderStage(dxvk_fullscreen_vert, nullptr);
+#else
     if (m_device->features().vk12.shaderOutputLayer) {
       state.vs = util::DxvkBuiltInShaderStage(dxvk_fullscreen_layer_vert, nullptr);
     } else {
       state.vs = util::DxvkBuiltInShaderStage(dxvk_fullscreen_vert, nullptr);
       state.gs = util::DxvkBuiltInShaderStage(dxvk_fullscreen_geom, nullptr);
     }
+#endif
 
     if (key.srcSamples != VK_SAMPLE_COUNT_1_BIT) {
       if (key.viewType == VK_IMAGE_VIEW_TYPE_2D_ARRAY) {

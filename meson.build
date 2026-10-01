@@ -207,6 +207,9 @@ glsl_args = [
   '@INPUT@',
   '-o', '@OUTPUT@',
 ]
+if get_option('webgpu_target')
+  glsl_args += ['--target-env', 'spirv1.3']  # Tint reads SPIR-V <= 1.3
+endif
 glsl_generator = generator(
   glsl_compiler,
   output    : [ '@BASENAME@.h' ],

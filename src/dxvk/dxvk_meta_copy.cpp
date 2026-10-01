@@ -229,12 +229,17 @@ namespace dxvk {
 
     util::DxvkBuiltInGraphicsState state = { };
 
+#ifdef DXVK_WEBGPU_TARGET
+    // No geometry shaders and no gl_Layer in WGSL: fullscreen pass hits layer 0 only.
+    state.vs = util::DxvkBuiltInShaderStage(dxvk_fullscreen_vert, nullptr);
+#else
     if (m_device->features().vk12.shaderOutputLayer) {
       state.vs = util::DxvkBuiltInShaderStage(dxvk_fullscreen_layer_vert, nullptr);
     } else {
       state.vs = util::DxvkBuiltInShaderStage(dxvk_fullscreen_vert, nullptr);
       state.gs = util::DxvkBuiltInShaderStage(dxvk_fullscreen_geom, nullptr);
     }
+#endif
 
     bool useDepthStencil = m_device->features().extShaderStencilExport
       && (aspect == (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT));
@@ -322,12 +327,17 @@ namespace dxvk {
     // Set up final pipeline state
     util::DxvkBuiltInGraphicsState state = { };
 
+#ifdef DXVK_WEBGPU_TARGET
+    // No geometry shaders and no gl_Layer in WGSL: fullscreen pass hits layer 0 only.
+    state.vs = util::DxvkBuiltInShaderStage(dxvk_fullscreen_vert, nullptr);
+#else
     if (m_device->features().vk12.shaderOutputLayer) {
       state.vs = util::DxvkBuiltInShaderStage(dxvk_fullscreen_layer_vert, nullptr);
     } else {
       state.vs = util::DxvkBuiltInShaderStage(dxvk_fullscreen_vert, nullptr);
       state.gs = util::DxvkBuiltInShaderStage(dxvk_fullscreen_geom, nullptr);
     }
+#endif
 
     if (m_device->features().extShaderStencilExport) {
       state.fs = util::DxvkBuiltInShaderStage(dxvk_buffer_to_image_ds_export, &specInfo);
