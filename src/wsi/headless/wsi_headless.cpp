@@ -30,12 +30,12 @@ namespace {
   }
 }
 
-extern "C" void vkwgpu_wsi_register_window(void* hwnd, uint32_t width, uint32_t height) {
+extern "C" void vkdawn_wsi_register_window(void* hwnd, uint32_t width, uint32_t height) {
   std::lock_guard<std::mutex> g(g_lock);
   g_windows[hwnd] = Size{width, height};
 }
 
-extern "C" void vkwgpu_wsi_unregister_window(void* hwnd) {
+extern "C" void vkdawn_wsi_unregister_window(void* hwnd) {
   std::lock_guard<std::mutex> g(g_lock);
   g_windows.erase(hwnd);
 }
@@ -112,20 +112,20 @@ namespace dxvk::wsi {
     }
 
     void resizeWindow(HWND hWindow, DxvkWindowState*, uint32_t width, uint32_t height) override {
-      vkwgpu_wsi_register_window(hWindow, width, height);
+      vkdawn_wsi_register_window(hWindow, width, height);
     }
 
     bool setWindowMode(HMONITOR hMonitor, HWND hWindow, DxvkWindowState*, const WsiMode& mode) override {
       if (hMonitor != kMonitor)
         return false;
-      vkwgpu_wsi_register_window(hWindow, mode.width, mode.height);
+      vkdawn_wsi_register_window(hWindow, mode.width, mode.height);
       return true;
     }
 
     bool enterFullscreenMode(HMONITOR hMonitor, HWND hWindow, DxvkWindowState*, bool) override {
       if (hMonitor != kMonitor)
         return false;
-      vkwgpu_wsi_register_window(hWindow, kMonitorWidth, kMonitorHeight);
+      vkdawn_wsi_register_window(hWindow, kMonitorWidth, kMonitorHeight);
       return true;
     }
 

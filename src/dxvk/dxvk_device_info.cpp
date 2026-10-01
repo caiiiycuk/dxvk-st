@@ -705,7 +705,7 @@ namespace dxvk {
         &m_featuresEnabled.ext.name,                      \
         require, #name }
 
-    // WebGPU target: features the vkwgpu layer cannot provide become optional.
+    // WebGPU target: features the vkdawn layer cannot provide become optional.
 #ifdef DXVK_WEBGPU_TARGET
     constexpr bool wgpu = false;
 #else
