@@ -5082,6 +5082,8 @@ namespace dxvk {
       pLockedBox->SlicePitch = pLockedBox->RowPitch * blockCount.height;
     }
 
+    if (!pResource->IsAnySubresourceLocked())
+      m_lockedTextures.push_back(pResource);
     pResource->SetLocked(Subresource, true);
 
     // Make sure the amount of mapped texture memory stays below the threshold.
@@ -5149,6 +5151,8 @@ namespace dxvk {
 
     MapTexture(pResource, Subresource); // Add it to the list of mapped resources
     pResource->SetLocked(Subresource, false);
+    if (!pResource->IsAnySubresourceLocked())
+      ForgetLockedTexture(pResource);
 
     // The app may have written through the mapping buffer: flush it on non-coherent memory.
     // Apps write past the locked level into the following ones (test_mipmap_upload), so flush to the end.
@@ -6242,6 +6246,13 @@ namespace dxvk {
     // Draws recorded so far may read buffers the app still has locked.
     for (D3D9CommonBuffer* buffer : m_lockedBuffers)
       FlushLockRange(buffer);
+
+    // Same for textures the app writes while locked across a submit (Perimeter):
+    // flush the whole mapping buffer, the compare finds only the touched bytes.
+    for (D3D9CommonTexture* texture : m_lockedTextures) {
+      if (texture->GetBuffer() != nullptr)
+        texture->GetBuffer()->flushMapped(0, texture->GetTotalSize());
+    }
 
     // Add commands to flush the threaded
     // context, then flush the command list

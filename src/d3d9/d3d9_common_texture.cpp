@@ -103,6 +103,8 @@ namespace dxvk {
       m_device->ChangeReportedMemory(m_size);
 
     m_device->RemoveMappedTexture(this);
+    if (IsAnySubresourceLocked())
+      m_device->ForgetLockedTexture(this);
 
     if (m_desc.Pool == D3DPOOL_DEFAULT)
       m_device->DecrementLosableCounter();

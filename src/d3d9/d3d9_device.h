@@ -1223,6 +1223,13 @@ namespace dxvk {
     }
 
     /**
+     * \brief Drops a texture whose last locked subresource was unlocked or destroyed
+     */
+    void ForgetLockedTexture(D3D9CommonTexture* pResource) {
+      m_lockedTextures.erase(std::remove(m_lockedTextures.begin(), m_lockedTextures.end(), pResource), m_lockedTextures.end());
+    }
+
+    /**
      * \brief Returns whether the device is configured to only support vertex processing.
      */
     bool CanOnlySWVP() const {
@@ -1624,6 +1631,7 @@ namespace dxvk {
     // Buffers with a live Lock: apps may draw from them while mapped, so
     // their lock ranges are flushed before every submission as well.
     std::vector<D3D9CommonBuffer*>  m_lockedBuffers;
+    std::vector<D3D9CommonTexture*> m_lockedTextures;
 
     D3D9Cursor                      m_cursor;
 
