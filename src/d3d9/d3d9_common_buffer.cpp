@@ -23,6 +23,8 @@ namespace dxvk {
   D3D9CommonBuffer::~D3D9CommonBuffer() {
     if (m_desc.Pool == D3DPOOL_DEFAULT)
       m_parent->DecrementLosableCounter();
+    if (m_lockCount != 0)
+      m_parent->ForgetLockedBuffer(this);
   }
 
 

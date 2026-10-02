@@ -5151,8 +5151,11 @@ namespace dxvk {
     pResource->SetLocked(Subresource, false);
 
     // The app may have written through the mapping buffer: flush it on non-coherent memory.
-    if (pResource->GetBuffer() != nullptr)
-      pResource->GetBuffer()->flushMapped(pResource->GetMemoryOffset(Subresource), pResource->GetMipSize(Subresource));
+    // Apps write past the locked level into the following ones (test_mipmap_upload), so flush to the end.
+    if (pResource->GetBuffer() != nullptr) {
+      uint32_t offset = pResource->GetMemoryOffset(Subresource);
+      pResource->GetBuffer()->flushMapped(offset, pResource->GetTotalSize() - offset);
+    }
 
     // Flush image contents from staging if we aren't read only
     // and we aren't deferring for managed.
@@ -5429,10 +5432,13 @@ namespace dxvk {
     uint32_t size   = respectUserBounds ? std::min(SizeToLock, desc.Size - offset) : desc.Size;
     D3D9Range lockRange = D3D9Range(offset, offset + size);
 
+    // NO_DIRTY_UPDATE skips the managed re-upload, not the host write itself
+    if (!(Flags & D3DLOCK_READONLY))
+      pResource->LockRange().Conjoin(lockRange);
+
     bool updateDirtyRange = (desc.Pool == D3DPOOL_DEFAULT || !(Flags & D3DLOCK_NO_DIRTY_UPDATE)) && !(Flags & D3DLOCK_READONLY);
     if (updateDirtyRange) {
       pResource->DirtyRange().Conjoin(lockRange);
-      pResource->LockRange().Conjoin(lockRange);
 
       for (uint32_t i : bit::BitMask(static_cast<uint32_t>(m_vbSlotTracking.bound))) {
         auto commonBuffer = GetCommonBuffer(m_state.vertexBuffers[i].vertexBuffer);
@@ -5505,7 +5511,8 @@ namespace dxvk {
       oldFlags &= ~D3DLOCK_READONLY;
 
     pResource->SetMapFlags(Flags | oldFlags);
-    pResource->IncrementLockCount();
+    if (pResource->IncrementLockCount() == 1)
+      m_lockedBuffers.push_back(pResource);
 
     // We just mapped a buffer which may have come with an address space cost.
     // Unmap textures if the amount of mapped texture memory is exceeding the threshold.
@@ -5554,6 +5561,19 @@ namespace dxvk {
   }
 
 
+  void D3D9DeviceEx::FlushLockRange(
+        D3D9CommonBuffer*       pResource) {
+    D3D9Range lockRange = pResource->LockRange();
+    if (lockRange.IsDegenerate())
+      return;
+    // Apps write outside the locked range of MANAGED buffers (wine test_max_index16);
+    // those are locked rarely, so flush them whole. DEFAULT dynamic buffers keep the range.
+    if (pResource->Desc()->Pool != D3DPOOL_DEFAULT)
+      lockRange = D3D9Range(0, pResource->Desc()->Size);
+    pResource->GetMappedSlice()->flushMapped(lockRange.min, lockRange.max - lockRange.min);
+  }
+
+
   HRESULT D3D9DeviceEx::UnlockBuffer(
         D3D9CommonBuffer*       pResource) {
     D3D9DeviceLock lock = LockDevice();
@@ -5561,12 +5581,11 @@ namespace dxvk {
     if (pResource->DecrementLockCount() != 0)
       return D3D_OK;
 
+    ForgetLockedBuffer(pResource);
+
     // The app wrote through the mapped slice (direct or staging): flush it on non-coherent memory.
-    D3D9Range& lockRange = pResource->LockRange();
-    if (!lockRange.IsDegenerate()) {
-      pResource->GetMappedSlice()->flushMapped(lockRange.min, lockRange.max - lockRange.min);
-      lockRange.Clear();
-    }
+    FlushLockRange(pResource);
+    pResource->LockRange().Clear();
 
     // Nothing else to do for directly mapped buffers. Those were already written.
     if (pResource->GetMapMode() != D3D9_COMMON_BUFFER_MAP_MODE_BUFFER)
@@ -6219,6 +6238,10 @@ namespace dxvk {
 
     // Update signaled staging buffer counter and signal the fence
     m_stagingMemorySignaled = m_stagingBuffer.getStatistics().allocatedTotal;
+
+    // Draws recorded so far may read buffers the app still has locked.
+    for (D3D9CommonBuffer* buffer : m_lockedBuffers)
+      FlushLockRange(buffer);
 
     // Add commands to flush the threaded
     // context, then flush the command list

@@ -906,6 +906,9 @@ namespace dxvk {
     HRESULT UnlockBuffer(
             D3D9CommonBuffer*       pResource);
 
+    void FlushLockRange(
+            D3D9CommonBuffer*       pResource);
+
     /**
      * @brief Uploads data from D3DPOOL_SYSMEM + D3DUSAGE_DYNAMIC buffers and binds the temporary buffers.
      *
@@ -1210,6 +1213,13 @@ namespace dxvk {
      */
     void DecrementLosableCounter() {
       m_losableResourceCounter--;
+    }
+
+    /**
+     * \brief Drops a buffer that is destroyed while still locked
+     */
+    void ForgetLockedBuffer(D3D9CommonBuffer* pResource) {
+      m_lockedBuffers.erase(std::remove(m_lockedBuffers.begin(), m_lockedBuffers.end(), pResource), m_lockedBuffers.end());
     }
 
     /**
@@ -1610,6 +1620,10 @@ namespace dxvk {
     DxvkStagingBuffer               m_stagingBuffer;
     Rc<sync::Fence>                 m_stagingBufferFence;
     VkDeviceSize                    m_stagingMemorySignaled = 0ull;
+
+    // Buffers with a live Lock: apps may draw from them while mapped, so
+    // their lock ranges are flushed before every submission as well.
+    std::vector<D3D9CommonBuffer*>  m_lockedBuffers;
 
     D3D9Cursor                      m_cursor;
 
