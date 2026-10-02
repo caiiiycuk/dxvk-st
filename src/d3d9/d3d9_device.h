@@ -1230,6 +1230,13 @@ namespace dxvk {
     }
 
     /**
+     * \brief Flushes host writes to resources the app still has locked
+     *
+     * Must run before every submission, including the initializer's.
+     */
+    void FlushLockedResources();
+
+    /**
      * \brief Returns whether the device is configured to only support vertex processing.
      */
     bool CanOnlySWVP() const {

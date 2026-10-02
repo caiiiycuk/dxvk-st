@@ -164,6 +164,9 @@ namespace dxvk {
 
 
   void D3D9Initializer::ExecuteFlushLocked() {
+    // Second submission point besides D3D9DeviceEx::ExecuteFlush.
+    m_parent->FlushLockedResources();
+
     EmitCs([] (DxvkContext* ctx) {
       ctx->flushCommandList(nullptr, nullptr);
     });

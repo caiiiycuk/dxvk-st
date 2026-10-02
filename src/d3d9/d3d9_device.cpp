@@ -6233,16 +6233,7 @@ namespace dxvk {
   }
 
 
-  template <bool Synchronize9On12>
-  void D3D9DeviceEx::ExecuteFlush() {
-    D3D9DeviceLock lock = LockDevice();
-
-    if constexpr (Synchronize9On12)
-      m_submitStatus.result = VK_NOT_READY;
-
-    // Update signaled staging buffer counter and signal the fence
-    m_stagingMemorySignaled = m_stagingBuffer.getStatistics().allocatedTotal;
-
+  void D3D9DeviceEx::FlushLockedResources() {
     // Draws recorded so far may read buffers the app still has locked.
     for (D3D9CommonBuffer* buffer : m_lockedBuffers)
       FlushLockRange(buffer);
@@ -6253,6 +6244,20 @@ namespace dxvk {
       if (texture->GetBuffer() != nullptr)
         texture->GetBuffer()->flushMapped(0, texture->GetTotalSize());
     }
+  }
+
+
+  template <bool Synchronize9On12>
+  void D3D9DeviceEx::ExecuteFlush() {
+    D3D9DeviceLock lock = LockDevice();
+
+    if constexpr (Synchronize9On12)
+      m_submitStatus.result = VK_NOT_READY;
+
+    // Update signaled staging buffer counter and signal the fence
+    m_stagingMemorySignaled = m_stagingBuffer.getStatistics().allocatedTotal;
+
+    FlushLockedResources();
 
     // Add commands to flush the threaded
     // context, then flush the command list
