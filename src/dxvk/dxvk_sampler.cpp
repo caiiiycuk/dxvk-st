@@ -176,6 +176,7 @@ namespace dxvk {
 
       vk->vkGetDescriptorEXT(vk->device(), &info, m_heap.descriptorSize,
         m_heap.buffer->mapPtr(m_heap.descriptorOffset + m_heap.descriptorSize * index));
+      m_heap.buffer->flushMapped(m_heap.descriptorOffset + m_heap.descriptorSize * index, m_heap.descriptorSize);
     } else {
       VkDescriptorImageInfo samplerInfo = { };
       samplerInfo.sampler = descriptor.samplerObject;

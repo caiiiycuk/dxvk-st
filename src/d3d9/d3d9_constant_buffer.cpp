@@ -69,6 +69,8 @@ namespace dxvk {
     });
 
     void* mapPtr = reinterpret_cast<char*>(m_slice->mapPtr()) + m_offset;
+    m_lastOffset = m_offset;
+    m_lastSize   = size;
     m_offset += size;
     return mapPtr;
   }
@@ -87,6 +89,8 @@ namespace dxvk {
       ctx->invalidateBuffer(cBuffer, std::move(cSlice));
     });
 
+    m_lastOffset = 0;
+    m_lastSize   = m_size;
     return m_slice->mapPtr();
   }
 

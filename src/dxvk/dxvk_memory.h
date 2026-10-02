@@ -551,6 +551,16 @@ namespace dxvk {
     }
 
     /**
+     * \brief Flushes host writes to the mapped region
+     *
+     * Only does anything on the WebGPU target, where host-visible
+     * memory is non-coherent and the layer uploads flushed ranges.
+     * \param [in] offset Byte offset into the allocation
+     * \param [in] size Number of bytes written
+     */
+    void flushMapped(VkDeviceSize offset, VkDeviceSize size) const;
+
+    /**
      * \brief Queries memory info
      * \returns Memory info
      */

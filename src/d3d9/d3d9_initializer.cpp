@@ -89,6 +89,7 @@ namespace dxvk {
     std::memset(
       Slice.mapPtr(0), 0,
       Slice.length());
+    Slice.flushMapped(0, Slice.length());
   }
 
 
@@ -142,6 +143,10 @@ namespace dxvk {
         mapPtr, 0,
         pTexture->GetTotalSize());
     }
+
+    // mapPtr is subresource 0 of the texture's mapping buffer
+    if (pTexture->GetBuffer() != nullptr)
+      pTexture->GetBuffer()->flushMapped(0, pTexture->GetTotalSize());
   }
 
 

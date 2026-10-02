@@ -161,6 +161,7 @@ namespace dxvk {
       m_gammaCpCount = cpCount;
 
       std::memcpy(m_gammaBuffer->mapPtr(0), cpData, cpCount * sizeof(*cpData));
+      m_gammaBuffer->flushMapped(0, bufferInfo.size);
     } else {
       // Destroy gamma image altogether
       m_gammaBuffer = nullptr;
@@ -190,6 +191,7 @@ namespace dxvk {
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
       std::memcpy(m_cursorBuffer->mapPtr(0), data, bufferInfo.size);
+      m_cursorBuffer->flushMapped(0, bufferInfo.size);
 
       DxvkImageCreateInfo imageInfo = { };
       imageInfo.type = VK_IMAGE_TYPE_2D;

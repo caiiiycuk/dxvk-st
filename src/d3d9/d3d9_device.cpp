@@ -3106,6 +3106,7 @@ namespace dxvk {
 
     auto upSlice = AllocUPBuffer(bufferSize);
     FillUPVertexBuffer(upSlice.mapPtr, pVertexStreamZeroData, dataSize, bufferSize);
+    upSlice.flush();
 
     EmitCs([this,
       cBufferSlice  = std::move(upSlice.slice),
@@ -3166,6 +3167,7 @@ namespace dxvk {
     uint8_t* data = reinterpret_cast<uint8_t*>(upSlice.mapPtr);
     FillUPVertexBuffer(data, pVertexStreamZeroData, vertexDataSize, vertexBufferSize);
     std::memcpy(data + vertexBufferSize, pIndexData, indicesSize);
+    upSlice.flush();
 
     EmitCs([this,
       cVertexSize   = vertexBufferSize,
@@ -5148,6 +5150,10 @@ namespace dxvk {
     MapTexture(pResource, Subresource); // Add it to the list of mapped resources
     pResource->SetLocked(Subresource, false);
 
+    // The app may have written through the mapping buffer: flush it on non-coherent memory.
+    if (pResource->GetBuffer() != nullptr)
+      pResource->GetBuffer()->flushMapped(pResource->GetMemoryOffset(Subresource), pResource->GetMipSize(Subresource));
+
     // Flush image contents from staging if we aren't read only
     // and we aren't deferring for managed.
     const D3DBOX& box = pResource->GetDirtyBox(Face);
@@ -5282,6 +5288,7 @@ namespace dxvk {
       util::packImageData(
         slice.mapPtr, srcData, extentBlockCount, formatInfo->elementSize,
         pitch, pitch * srcTexLevelExtentBlockCount.height);
+      slice.flush();
 
       VkFormat packedDSFormat = GetPackedDepthStencilFormat(pDestTexture->Desc()->Format);
 
@@ -5337,6 +5344,7 @@ namespace dxvk {
       util::packImageData(
         slice.mapPtr, mapPtr, srcBlockCount, formatElementSize,
         pitch, std::min(pSrcTexture->GetPlaneCount(), 2u) * pitch * srcBlockCount.height);
+      slice.flush();
 
       EmitCs([this,
         cConvertFormat    = convertFormat,
@@ -5424,6 +5432,7 @@ namespace dxvk {
     bool updateDirtyRange = (desc.Pool == D3DPOOL_DEFAULT || !(Flags & D3DLOCK_NO_DIRTY_UPDATE)) && !(Flags & D3DLOCK_READONLY);
     if (updateDirtyRange) {
       pResource->DirtyRange().Conjoin(lockRange);
+      pResource->LockRange().Conjoin(lockRange);
 
       for (uint32_t i : bit::BitMask(static_cast<uint32_t>(m_vbSlotTracking.bound))) {
         auto commonBuffer = GetCommonBuffer(m_state.vertexBuffers[i].vertexBuffer);
@@ -5520,6 +5529,7 @@ namespace dxvk {
     D3D9BufferSlice slice = AllocStagingBuffer(range.max - range.min);
     void* srcData = reinterpret_cast<uint8_t*>(srcSlice->mapPtr()) + range.min;
     memcpy(slice.mapPtr, srcData, range.max - range.min);
+    slice.flush();
 
     EmitCs([
       cDstSlice  = dstBuffer,
@@ -5550,6 +5560,13 @@ namespace dxvk {
 
     if (pResource->DecrementLockCount() != 0)
       return D3D_OK;
+
+    // The app wrote through the mapped slice (direct or staging): flush it on non-coherent memory.
+    D3D9Range& lockRange = pResource->LockRange();
+    if (!lockRange.IsDegenerate()) {
+      pResource->GetMappedSlice()->flushMapped(lockRange.min, lockRange.max - lockRange.min);
+      lockRange.Clear();
+    }
 
     // Nothing else to do for directly mapped buffers. Those were already written.
     if (pResource->GetMapMode() != D3D9_COMMON_BUFFER_MAP_MODE_BUFFER)
@@ -5770,6 +5787,8 @@ namespace dxvk {
       // Change the draw call parameters to reflect the changed index buffer
       FirstIndex = 0;
     }
+
+    upSlice.flush();
   }
 
 
@@ -5989,15 +6008,21 @@ namespace dxvk {
             data[constant.uboIdx] = *reinterpret_cast<const Vector4*>(constant.float32);
         }
       }
+
+      constSet.buffer.Flush();
     }
 
     // Max copy source size is 2048 * 16 => always aligned to any plausible value
     // => we won't copy out of bounds
-    if (likely(constSet.meta.maxConstIndexI != 0))
+    if (likely(constSet.meta.maxConstIndexI != 0)) {
       CopySoftwareConstants(constSet.swvp.intBuffer, Src.iConsts, intDataSize);
+      constSet.swvp.intBuffer.Flush();
+    }
 
-    if (likely(constSet.meta.maxConstIndexB != 0))
+    if (likely(constSet.meta.maxConstIndexB != 0)) {
       CopySoftwareConstants(constSet.swvp.boolBuffer, Src.bConsts, boolDataSize);
+      constSet.swvp.boolBuffer.Flush();
+    }
   }
 
 
@@ -6065,6 +6090,8 @@ namespace dxvk {
           data[constant.uboIdx] = *reinterpret_cast<const Vector4*>(constant.float32);
       }
     }
+
+    constSet.buffer.Flush();
   }
 
 
@@ -6100,6 +6127,8 @@ namespace dxvk {
     // Write the rest to 0 for GPL.
     for (uint32_t i = clipPlaneCount; i < caps::MaxClipPlanes; i++)
       dst[i] = D3D9ClipPlane();
+
+    m_vsClipPlanes.Flush();
 
     if (m_specInfo.set<SpecClipPlaneCount>(clipPlaneCount))
       m_flags.set(D3D9DeviceFlag::DirtySpecializationEntries);
@@ -7590,6 +7619,8 @@ namespace dxvk {
         data->Stages[i].BumpEnvLScale    = bit::cast<float>(m_state.textureStages[i][DXVK_TSS_BUMPENVLSCALE]);
         data->Stages[i].BumpEnvLOffset   = bit::cast<float>(m_state.textureStages[i][DXVK_TSS_BUMPENVLOFFSET]);
       }
+
+      m_psShared.Flush();
     }
 
     if (unlikely(m_flags.test(D3D9DeviceFlag::DirtyDepthBounds))) {
@@ -8148,6 +8179,8 @@ namespace dxvk {
 
       data->Material = m_state.material;
       data->TweenFactor = bit::cast<float>(m_state.renderStates[D3DRS_TWEENFACTOR]);
+
+      m_vsFixedFunction.Flush();
     }
 
     if (m_flags.test(D3D9DeviceFlag::DirtyFFVertexBlend) && vertexBlendMode == D3D9FF_VertexBlendMode_Normal) {
@@ -8162,6 +8195,8 @@ namespace dxvk {
       (m_isSWVP && indexedVertexBlend)
         ? UploadVertexBlendData(reinterpret_cast<D3D9FixedFunctionVertexBlendDataSW*>(mapPtr))
         : UploadVertexBlendData(reinterpret_cast<D3D9FixedFunctionVertexBlendDataHW*>(mapPtr));
+
+      m_vsVertexBlend.Flush();
     }
   }
 
@@ -8270,6 +8305,8 @@ namespace dxvk {
 
       D3D9FixedFunctionPS* data = reinterpret_cast<D3D9FixedFunctionPS*>(mapPtr);
       DecodeD3DCOLOR((D3DCOLOR)rs[D3DRS_TEXTUREFACTOR], data->textureFactor.data);
+
+      m_psFixedFunction.Flush();
     }
   }
 
@@ -8977,6 +9014,7 @@ namespace dxvk {
       // TODO: Make uploading specialization information less naive.
       auto mapPtr = m_specBuffer.AllocSlice();
       memcpy(mapPtr, m_specInfo.data.data(), D3D9SpecializationInfo::UBOSize);
+      m_specBuffer.Flush();
     }
 
     m_flags.clr(D3D9DeviceFlag::DirtySpecializationEntries);

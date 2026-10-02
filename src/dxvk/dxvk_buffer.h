@@ -189,6 +189,16 @@ namespace dxvk {
     }
 
     /**
+     * \brief Flushes host writes made through \ref mapPtr
+     *
+     * \param [in] offset Byte offset into the buffer
+     * \param [in] size Number of bytes written
+     */
+    void flushMapped(VkDeviceSize offset, VkDeviceSize size) const {
+      m_storage->flushMapped(offset, size);
+    }
+
+    /**
      * \brief Queries shader stages that can access this buffer
      *
      * Derived from the pipeline stage mask passed in during creation.
@@ -575,6 +585,17 @@ namespace dxvk {
       return m_buffer != nullptr
         ? m_buffer->mapPtr(m_offset + offset)
         : nullptr;
+    }
+
+    /**
+     * \brief Flushes host writes made through \ref mapPtr
+     *
+     * \param [in] offset Offset into the slice
+     * \param [in] size Number of bytes written
+     */
+    void flushMapped(VkDeviceSize offset, VkDeviceSize size) const {
+      if (m_buffer != nullptr)
+        m_buffer->flushMapped(m_offset + offset, size);
     }
 
     /**

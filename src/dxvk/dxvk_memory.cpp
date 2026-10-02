@@ -245,6 +245,26 @@ namespace dxvk {
   }
 
 
+  void DxvkResourceAllocation::flushMapped(VkDeviceSize offset, VkDeviceSize size) const {
+#ifdef DXVK_WEBGPU_TARGET
+    if (!m_mapPtr || !m_type || !size
+     || (m_type->properties.propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+      return;
+
+    auto vk = m_allocator->device()->vkd();
+
+    // nonCoherentAtomSize is 64 on the layer; the layer clamps the end to the allocation.
+    VkDeviceSize start = (m_address & DxvkPageAllocator::ChunkAddressMask) + offset;
+
+    VkMappedMemoryRange range = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
+    range.memory = m_memory;
+    range.offset = start & ~VkDeviceSize(63u);
+    range.size = align(start + size, VkDeviceSize(64u)) - range.offset;
+    vk->vkFlushMappedMemoryRanges(vk->device(), 1, &range);
+#endif
+  }
+
+
   const DxvkDescriptor* DxvkResourceAllocation::createBufferView(
     const DxvkBufferViewKey&          key) {
     if (unlikely(!m_bufferViews))
@@ -2050,6 +2070,27 @@ namespace dxvk {
 
     if (!m_memTypesByPropertyFlags[hostCachedIndex])
       m_memTypesByPropertyFlags[hostCachedIndex] = m_memTypesByPropertyFlags[hostCoherentIndex];
+
+#ifdef DXVK_WEBGPU_TARGET
+    // The WebGPU layer offers a non-coherent host-visible type whose flushes tell
+    // it exactly what to upload; route every host-visible request there and flush
+    // explicitly (DxvkResourceAllocation::flushMapped) instead of relying on coherence.
+    uint32_t nonCoherentMask = 0u;
+
+    for (uint32_t j = 0; j < m_memTypeCount; j++) {
+      VkMemoryPropertyFlags typeFlags = m_memTypes[j].properties.propertyFlags;
+
+      if ((typeFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) && !(typeFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
+        nonCoherentMask |= 1u << j;
+    }
+
+    if (nonCoherentMask) {
+      for (uint32_t i = 0; i < m_memTypesByPropertyFlags.size(); i++) {
+        if (i & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+          m_memTypesByPropertyFlags[i] = nonCoherentMask;
+      }
+    }
+#endif
   }
 
 

@@ -318,6 +318,7 @@ namespace dxvk {
       } else {
         std::memset(m_buffer->mapPtr(0), 0, m_totalSize);
       }
+      m_buffer->flushMapped(0, m_totalSize);
     }
     m_data = {};
   }

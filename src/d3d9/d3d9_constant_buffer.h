@@ -62,7 +62,21 @@ namespace dxvk {
      */
     void* AllocSlice();
 
+    /**
+     * \brief Flushes the last allocation
+     *
+     * Call after writing the region returned by \ref Alloc
+     * or \ref AllocSlice; no-op on coherent memory.
+     */
+    void Flush() {
+      if (m_slice != nullptr)
+        m_slice->flushMapped(m_lastOffset, m_lastSize);
+    }
+
   private:
+
+    VkDeviceSize          m_lastOffset = 0ull;
+    VkDeviceSize          m_lastSize   = 0ull;
 
     D3D9DeviceEx*         m_device  = nullptr;
 

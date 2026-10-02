@@ -468,6 +468,10 @@ namespace dxvk {
      */
     VkDeviceSize GetMipSize(UINT Subresource) const;
 
+    uint32_t GetMemoryOffset(UINT Subresource) const {
+      return m_memoryOffset[Subresource];
+    }
+
     uint32_t GetTotalSize() const {
       return m_totalSize;
     }

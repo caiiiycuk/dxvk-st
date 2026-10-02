@@ -79,6 +79,7 @@ namespace dxvk {
       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     std::memset(buffer->mapPtr(0), 0, info.size);
+    buffer->flushMapped(0, info.size);
     return buffer;
   }
   

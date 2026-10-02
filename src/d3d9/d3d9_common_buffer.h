@@ -155,6 +155,13 @@ namespace dxvk {
     inline D3D9Range& DirtyRange()  { return m_dirtyRange; }
 
     /**
+     * \brief The range written by the current Lock..Unlock bracket
+     *
+     * Flushed on Unlock for directly mapped buffers (non-coherent memory).
+     */
+    inline D3D9Range& LockRange()   { return m_lockRange; }
+
+    /**
     * \brief Whether or not the buffer was written to by the GPU (in IDirect3DDevice9::ProcessVertices)
     */
     inline bool NeedsReadback() const     { return m_needsReadback; }
@@ -239,6 +246,7 @@ namespace dxvk {
     Rc<DxvkResourceAllocation>  m_allocation;
 
     D3D9Range                   m_dirtyRange;
+    D3D9Range                   m_lockRange;
 
     uint32_t                    m_lockCount = 0;
 

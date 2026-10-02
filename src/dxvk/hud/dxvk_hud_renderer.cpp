@@ -185,6 +185,7 @@ namespace dxvk::hud {
     }
 
     std::memset(m_textBuffer->mapPtr(drawArgOffset + drawArgWriteSize), 0, drawArgsSize - drawArgWriteSize);
+    m_textBuffer->flushMapped(0, drawArgOffset + drawArgsSize);
 
     // Draw the actual text
     DxvkResourceBufferInfo textBufferInfo = m_textBuffer->getSliceInfo(textSizeAligned, drawInfoSize);
@@ -371,6 +372,7 @@ namespace dxvk::hud {
 
     std::memcpy(uploadBuffer->mapPtr(0), &glyphData, bufferDataSize);
     std::memcpy(uploadBuffer->mapPtr(bufferDataSize), g_hudFont.texture, textureDataSize);
+    uploadBuffer->flushMapped(0, bufferDataSize + textureDataSize);
 
     auto uploadSlice = uploadBuffer->getSliceInfo();
     auto fontSlice = m_fontBuffer->getSliceInfo();

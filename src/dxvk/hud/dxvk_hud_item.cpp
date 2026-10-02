@@ -1096,6 +1096,7 @@ namespace dxvk::hud {
     // Update chunk data and pad with zeroes
     std::memcpy(m_dataBuffer->mapPtr(drawInfoSizeAligned), m_stats.pageMasks.data(), chunkDataSize);
     std::memset(m_dataBuffer->mapPtr(drawInfoSizeAligned + chunkDataSize), 0, chunkDataSizeAligned - chunkDataSize);
+    m_dataBuffer->flushMapped(0, drawInfoSizeAligned + chunkDataSizeAligned);
 
     // Write back descriptors
     drawDescriptor = m_dataBuffer->getSliceInfo(0u, drawInfoSizeAligned);

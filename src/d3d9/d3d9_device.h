@@ -107,6 +107,11 @@ namespace dxvk {
   struct D3D9BufferSlice {
     DxvkBufferSlice slice = {};
     void*           mapPtr = nullptr;
+
+    // Call after writing through mapPtr; no-op on coherent memory.
+    void flush() const {
+      slice.flushMapped(0, slice.length());
+    }
   };
 
   struct D3D9TextureSlotTracking {

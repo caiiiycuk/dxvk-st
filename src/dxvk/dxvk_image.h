@@ -430,6 +430,16 @@ namespace dxvk {
     void* mapPtr(VkDeviceSize offset) const {
       return reinterpret_cast<char*>(m_imageInfo.mapPtr) + offset;
     }
+
+    /**
+     * \brief Flushes host writes made through \ref mapPtr
+     *
+     * \param [in] offset Byte offset into the image memory
+     * \param [in] size Number of bytes written
+     */
+    void flushMapped(VkDeviceSize offset, VkDeviceSize size) const {
+      m_storage->flushMapped(offset, size);
+    }
     
     /**
      * \brief Image format info
