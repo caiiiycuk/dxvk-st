@@ -26,7 +26,15 @@ namespace dxvk {
     float coeff[4] = {};
 
     bool operator == (const D3D9ClipPlane& other) {
-      return std::memcmp(this, &other, sizeof(D3D9ClipPlane)) == 0;
+      // Not memcmp: emscripten 5.0.2 (LLVM) fails to select the 16-byte
+      // compare under -msimd128 -O3 ("Cannot select: setcc ... i1").
+      for (uint32_t i = 0; i < 4; i++) {
+        uint32_t a, b;
+        std::memcpy(&a, &coeff[i], 4);
+        std::memcpy(&b, &other.coeff[i], 4);
+        if (a != b) return false;
+      }
+      return true;
     }
 
     bool operator != (const D3D9ClipPlane& other) {
