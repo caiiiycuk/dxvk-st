@@ -1630,8 +1630,12 @@ namespace dxvk {
     // resources.
     VkDeviceSize maxUnusedMemory = pool.maxChunkSize;
 
+#ifndef DXVK_WEBGPU_TARGET
+    // On the WebGPU target every mapped chunk is shadowed on the host, so
+    // keep only one empty chunk there.
     if (&pool == &type.mappedPool)
       maxUnusedMemory *= 4u;
+#endif
 
     // Factor current memory allocation into the decision to free chunks
     VkDeviceSize heapBudget = type.heap->memoryBudget;

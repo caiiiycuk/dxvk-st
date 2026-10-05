@@ -6610,6 +6610,7 @@ namespace dxvk {
 
     pResource->ClearDirtyBoxes();
     pResource->ClearNeedsUpload();
+    pResource->TossManagedBuffer();
   }
 
 
