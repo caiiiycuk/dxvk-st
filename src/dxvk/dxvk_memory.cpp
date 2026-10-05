@@ -1866,8 +1866,17 @@ namespace dxvk {
     // Prefer smaller chunks for host-visible allocations in order to
     // reduce the amount of address space required. We compensate for
     // the smaller size by allowing more unused memory on these heaps.
-    if (mappable)
+    if (mappable) {
+#ifdef DXVK_WEBGPU_TARGET
+      // Host-visible memory is backed by a host shadow in the layer, so a
+      // fragmented chunk costs real host memory. Always use the small 32-bit
+      // chunk size: the browser (wasm32) gets it anyway, and the native
+      // build then measures the same footprint.
+      size /= 16u;
+#else
       size /= env::is32BitHostPlatform() ? 16u : 4u;
+#endif
+    }
 
     // Ensure that we can at least do 7  allocations to fill
     // the heap. Might be useful on systems with small BAR.
