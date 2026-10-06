@@ -1269,7 +1269,7 @@ namespace dxvk {
 
     surf->AddRef();
     auto* req = new Request { cb, user, surf, texInfo, sub,
-      align(formatInfo->elementSize * util::computeBlockCount(extent, formatInfo->blockSize).width, 4u) };
+      UINT(align(formatInfo->elementSize * util::computeBlockCount(extent, formatInfo->blockSize).width, 4u)) };
 
     RequestReadback(*texInfo->GetBuffer(), [] (void* p) {
       auto* r = static_cast<Request*>(p);
