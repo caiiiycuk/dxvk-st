@@ -832,6 +832,41 @@ namespace dxvk {
             uint64_t                SequenceNumber,
             DWORD                   MapFlags);
 
+#ifdef DXVK_WEBGPU_TARGET
+    /**
+     * \brief Asks the vkdawn layer to read a mapping buffer back
+     *
+     * The layer never blocks: GPU-written memory reaches the host
+     * only through a vkdawn_readback request. The request covers the
+     * whole memory range behind \c Buffer; \c cb runs when it landed.
+     */
+    void RequestReadback(
+      const DxvkBuffer&             Buffer,
+            void                  (*cb)(void*),
+            void*                   user);
+
+    /**
+     * \brief Synchronous readback of a mapping buffer
+     *
+     * Pumps the host (dxvk_set_wait_pump) until the data landed.
+     * \returns \c false when no pump is installed; the request is
+     *    still issued and the data arrives in the background.
+     */
+    bool ReadbackMapping(
+      const DxvkBuffer&             Buffer);
+
+    /**
+     * \brief Asynchronous surface readback (ID3D9VkdawnReadback)
+     *
+     * Copies the surface into its own mapping buffer and requests a
+     * readback; \c cb receives the pixels from a later pump/present.
+     */
+    HRESULT RequestSurfaceData(
+            IDirect3DSurface9*      pSurface,
+            void                  (*cb)(const void* data, UINT pitch, void* user),
+            void*                   user);
+#endif
+
     /**
      * \brief Locks a subresource of an image
      *
@@ -1725,6 +1760,9 @@ namespace dxvk {
     Direct3DState9                  m_state;
 
     D3D9VkInteropDevice             m_d3d9Interop;
+#ifdef DXVK_WEBGPU_TARGET
+    D3D9VkdawnReadback              m_vkdawnReadback;
+#endif
     D3D9ON12_ARGS                   m_d3d9On12Args = { };
     D3D9On12                        m_d3d9On12;
     DxvkD3D8Bridge                  m_d3d8Bridge;

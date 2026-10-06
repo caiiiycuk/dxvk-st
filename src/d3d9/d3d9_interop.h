@@ -2,6 +2,7 @@
 
 #include "d3d9_interfaces.h"
 #include "d3d9_multithread.h"
+#include "d3d9_vkdawn.h"
 
 #include "../dxvk/dxvk_extension_provider.h"
 
@@ -139,6 +140,32 @@ namespace dxvk {
 
     D3D9DeviceEx*  m_device;
     D3D9DeviceLock m_lock;
+
+  };
+
+  class D3D9VkdawnReadback final : public ID3D9VkdawnReadback {
+
+  public:
+
+    D3D9VkdawnReadback(
+            D3D9DeviceEx*         pDevice);
+
+    ULONG STDMETHODCALLTYPE AddRef();
+
+    ULONG STDMETHODCALLTYPE Release();
+
+    HRESULT STDMETHODCALLTYPE QueryInterface(
+            REFIID                riid,
+            void**                ppvObject);
+
+    HRESULT STDMETHODCALLTYPE RequestSurfaceData(
+            IDirect3DSurface9*    pSurface,
+            void                (*cb)(const void* data, UINT pitch, void* user),
+            void*                 user);
+
+  private:
+
+    D3D9DeviceEx* m_device;
 
   };
 

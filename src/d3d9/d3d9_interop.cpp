@@ -373,3 +373,40 @@ namespace dxvk {
   }
 
 }
+
+#ifdef DXVK_WEBGPU_TARGET
+namespace dxvk {
+
+  ////////////////////////////////
+  // vkdawn readback
+  ///////////////////////////////
+
+  D3D9VkdawnReadback::D3D9VkdawnReadback(
+          D3D9DeviceEx*         pDevice)
+    : m_device(pDevice) {
+
+  }
+
+  ULONG STDMETHODCALLTYPE D3D9VkdawnReadback::AddRef() {
+    return m_device->AddRef();
+  }
+
+  ULONG STDMETHODCALLTYPE D3D9VkdawnReadback::Release() {
+    return m_device->Release();
+  }
+
+  HRESULT STDMETHODCALLTYPE D3D9VkdawnReadback::QueryInterface(
+          REFIID                riid,
+          void**                ppvObject) {
+    return m_device->QueryInterface(riid, ppvObject);
+  }
+
+  HRESULT STDMETHODCALLTYPE D3D9VkdawnReadback::RequestSurfaceData(
+          IDirect3DSurface9*    pSurface,
+          void                (*cb)(const void* data, UINT pitch, void* user),
+          void*                 user) {
+    return m_device->RequestSurfaceData(pSurface, cb, user);
+  }
+
+}
+#endif

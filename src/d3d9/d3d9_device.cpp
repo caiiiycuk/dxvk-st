@@ -60,6 +60,9 @@ namespace dxvk {
     , m_submissionFence    ( new sync::Fence() )
     , m_flushTracker       ( GetMaxFlushType() )
     , m_d3d9Interop        ( this )
+#ifdef DXVK_WEBGPU_TARGET
+    , m_vkdawnReadback     ( this )
+#endif
     , m_d3d9On12Args       ( pAdapter->Get9On12Args() )
     , m_d3d9On12           ( this )
     , m_d3d8Bridge         ( this ) {
@@ -237,6 +240,13 @@ namespace dxvk {
       *ppvObject = ref(&m_d3d9Interop);
       return S_OK;
     }
+
+#ifdef DXVK_WEBGPU_TARGET
+    if (riid == __uuidof(ID3D9VkdawnReadback)) {
+      *ppvObject = ref(&m_vkdawnReadback);
+      return S_OK;
+    }
+#endif
 
     if (riid == __uuidof(IDirect3DDevice9On12)) {
       if (m_d3d9On12Args.Enable9On12) {
@@ -1187,8 +1197,90 @@ namespace dxvk {
     dstTexInfo->SetNeedsReadback(dst->GetSubresource(), true);
     TrackTextureMappingBufferSequenceNumber(dstTexInfo, dst->GetSubresource());
 
+#ifdef DXVK_WEBGPU_TARGET
+    // The copy has to reach the host now: Lock later must not block.
+    Flush();
+    SynchronizeCsThread(DxvkCsThread::SynchronizeAll);
+
+    if (!ReadbackMapping(*dstTexInfo->GetBuffer()))
+      return D3DERR_NOTAVAILABLE;
+
+    dstTexInfo->SetNeedsReadback(dst->GetSubresource(), false);
+#endif
+
     return D3D_OK;
   }
+
+
+#ifdef DXVK_WEBGPU_TARGET
+  HRESULT D3D9DeviceEx::RequestSurfaceData(
+          IDirect3DSurface9* pSurface,
+          void             (*cb)(const void* data, UINT pitch, void* user),
+          void*              user) {
+    D3D9DeviceLock lock = LockDevice();
+
+    D3D9Surface* surf = static_cast<D3D9Surface*>(pSurface);
+
+    if (unlikely(surf == nullptr || cb == nullptr))
+      return D3DERR_INVALIDCALL;
+
+    D3D9CommonTexture* texInfo = GetCommonTexture(surf);
+    Rc<DxvkImage> image = texInfo->GetImage();
+
+    if (unlikely(image == nullptr))
+      return D3DERR_INVALIDCALL;
+
+    const UINT sub = surf->GetSubresource();
+    const DxvkFormatInfo* formatInfo = lookupFormatInfo(image->info().format);
+    const VkExtent3D extent = texInfo->GetExtentMip(surf->GetMipLevel());
+
+    texInfo->CreateBuffer(false);
+    DxvkBufferSlice slice = texInfo->GetBufferSlice(sub);
+
+    const VkImageSubresource subresource = texInfo->GetSubresourceFromIndex(formatInfo->aspectMask, sub);
+    VkImageSubresourceLayers layers = {
+      subresource.aspectMask,
+      subresource.mipLevel,
+      subresource.arrayLayer, 1 };
+
+    EmitCs([
+      cBufferSlice  = std::move(slice),
+      cImage        = image,
+      cSubresources = layers,
+      cLevelExtent  = extent
+    ] (DxvkContext* ctx) {
+      ctx->copyImageToBuffer(cBufferSlice.buffer(), cBufferSlice.offset(),
+        4, 0, VK_FORMAT_UNDEFINED, cImage, cSubresources,
+        VkOffset3D { 0, 0, 0 }, cLevelExtent);
+    });
+
+    TrackTextureMappingBufferSequenceNumber(texInfo, sub);
+    Flush();
+    SynchronizeCsThread(DxvkCsThread::SynchronizeAll);
+
+    struct Request {
+      void (*cb)(const void*, UINT, void*);
+      void* user;
+      IDirect3DSurface9* surface;
+      D3D9CommonTexture* texture;
+      UINT subresource;
+      UINT pitch;
+    };
+
+    surf->AddRef();
+    auto* req = new Request { cb, user, surf, texInfo, sub,
+      align(formatInfo->elementSize * util::computeBlockCount(extent, formatInfo->blockSize).width, 4u) };
+
+    RequestReadback(*texInfo->GetBuffer(), [] (void* p) {
+      auto* r = static_cast<Request*>(p);
+      r->cb(r->texture->GetData(r->subresource), r->pitch, r->user);
+      r->surface->Release();
+      delete r;
+    }, req);
+
+    return D3D_OK;
+  }
+#endif
 
 
   HRESULT STDMETHODCALLTYPE D3D9DeviceEx::GetFrontBufferData(UINT iSwapChain, IDirect3DSurface9* pDestSurface) {
@@ -4839,6 +4931,56 @@ namespace dxvk {
   }
 
 
+#ifdef DXVK_WEBGPU_TARGET
+  namespace {
+    void (*g_waitPump)(void*) = nullptr;
+    void*  g_waitPumpUser     = nullptr;
+  }
+
+  extern "C" void dxvk_set_wait_pump(void (*fn)(void*), void* user) {
+    g_waitPump     = fn;
+    g_waitPumpUser = user;
+  }
+
+
+  void D3D9DeviceEx::RequestReadback(
+    const DxvkBuffer&                       Buffer,
+          void                            (*cb)(void*),
+          void*                             user) {
+    using PFN_vkdawn_readback = void (*)(VkDevice, VkDeviceMemory,
+      VkDeviceSize, VkDeviceSize, void (*)(void*), void*);
+
+    static PFN_vkdawn_readback readback = nullptr;
+
+    if (!readback) {
+      auto instance = m_dxvkDevice->instance();
+      readback = reinterpret_cast<PFN_vkdawn_readback>(
+        instance->vki()->getLoaderProc()(instance->handle(), "vkdawn_readback"));
+    }
+
+    auto info = Buffer.storage()->getMemoryInfo();
+    readback(m_dxvkDevice->handle(), info.memory, info.offset, info.size, cb, user);
+  }
+
+
+  bool D3D9DeviceEx::ReadbackMapping(
+    const DxvkBuffer&                       Buffer) {
+    if (!g_waitPump) {
+      RequestReadback(Buffer, [] (void*) { }, nullptr);
+      return false;
+    }
+
+    bool done = false;
+    RequestReadback(Buffer, [] (void* flag) { *static_cast<bool*>(flag) = true; }, &done);
+
+    while (!done)
+      g_waitPump(g_waitPumpUser);
+
+    return true;
+  }
+#endif
+
+
   uint32_t D3D9DeviceEx::CalcImageLockOffset(
             uint32_t                SlicePitch,
             uint32_t                RowPitch,
@@ -4893,6 +5035,9 @@ namespace dxvk {
 
     // We only ever wait for textures that were used with GetRenderTargetData or GetFrontBufferData anyway.
     // Games like Beyond Good and Evil break if this doesn't succeed.
+#ifdef DXVK_WEBGPU_TARGET
+    const bool doNotWait = Flags & D3DLOCK_DONOTWAIT;
+#endif
     Flags &= ~D3DLOCK_DONOTWAIT;
 
     if (unlikely((Flags & (D3DLOCK_DISCARD | D3DLOCK_NOOVERWRITE)) == (D3DLOCK_DISCARD | D3DLOCK_NOOVERWRITE)))
@@ -5059,6 +5204,15 @@ namespace dxvk {
       // Wait until the buffer is idle which may include the copy (and resolve) we just issued.
       if (!WaitForResource(*mappedBuffer, pResource->GetMappingBufferSequenceNumber(Subresource), Flags))
         return D3DERR_WASSTILLDRAWING;
+
+#ifdef DXVK_WEBGPU_TARGET
+      // The wait above returned at once; the GPU bytes still have to be
+      // read back. Without a pump the lock cannot deliver them yet.
+      if (needsReadback && !doNotWait && !ReadbackMapping(*mappedBuffer)) {
+        pResource->SetNeedsReadback(Subresource, true);
+        return D3DERR_WASSTILLDRAWING;
+      }
+#endif
     }
 
     const bool atiHack = desc.Format == D3D9Format::ATI1 || desc.Format == D3D9Format::ATI2;
@@ -5498,6 +5652,11 @@ namespace dxvk {
         const Rc<DxvkBuffer> mappingBuffer = pResource->GetBuffer<D3D9_COMMON_BUFFER_TYPE_MAPPING>();
         if (!WaitForResource(*mappingBuffer, pResource->GetMappingBufferSequenceNumber(), Flags))
           return D3DERR_WASSTILLDRAWING;
+
+#ifdef DXVK_WEBGPU_TARGET
+        if (needsReadback && !ReadbackMapping(*mappingBuffer))
+          return D3DERR_WASSTILLDRAWING;
+#endif
 
         pResource->SetNeedsReadback(false);
       }
@@ -6610,7 +6769,6 @@ namespace dxvk {
 
     pResource->ClearDirtyBoxes();
     pResource->ClearNeedsUpload();
-    pResource->TossManagedBuffer();
   }
 
 

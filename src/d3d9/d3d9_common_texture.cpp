@@ -705,10 +705,8 @@ namespace dxvk {
         m_device->FlushImage(this, Subresource);
         SetNeedsUpload(Subresource, false);
 
-        if (!NeedsAnyUpload()) {
+        if (!NeedsAnyUpload())
           m_device->MarkTextureUploaded(this);
-          TossManagedBuffer();
-        }
       }
     }
   }

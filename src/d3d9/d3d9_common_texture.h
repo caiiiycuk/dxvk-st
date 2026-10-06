@@ -255,26 +255,6 @@ namespace dxvk {
       MarkAllNeedReadback();
     }
 
-    /**
-     * \brief Drops a managed texture's mapping buffer once uploaded
-     *
-     * On the WebGPU target host-visible memory is shadowed on the host,
-     * so keeping the sysmem copy of every managed texture doubles its
-     * footprint. Same conditions as the non-managed toss in UnlockImage;
-     * a later Lock reads the image back instead.
-     */
-    void TossManagedBuffer() {
-#ifdef DXVK_WEBGPU_TARGET
-      if (m_buffer == nullptr || !IsManaged())
-        return;
-      if (GetMapMode() != D3D9_COMMON_TEXTURE_MAP_MODE_BACKED || IsDynamic() || IsAnySubresourceLocked())
-        return;
-      if (m_mapping.ConversionFormatInfo.FormatType != D3D9ConversionFormat_None)
-        return;
-      DestroyBuffer();
-#endif
-    }
-
     bool IsDynamic() const {
       return m_desc.Usage & D3DUSAGE_DYNAMIC;
     }

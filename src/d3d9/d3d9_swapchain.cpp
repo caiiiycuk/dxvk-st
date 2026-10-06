@@ -465,6 +465,16 @@ namespace dxvk {
     dstTexInfo->SetNeedsReadback(dst->GetSubresource(), true);
     m_parent->TrackTextureMappingBufferSequenceNumber(dstTexInfo, dst->GetSubresource());
 
+#ifdef DXVK_WEBGPU_TARGET
+    m_parent->Flush();
+    m_parent->SynchronizeCsThread(DxvkCsThread::SynchronizeAll);
+
+    if (!m_parent->ReadbackMapping(*dstTexInfo->GetBuffer()))
+      return D3DERR_NOTAVAILABLE;
+
+    dstTexInfo->SetNeedsReadback(dst->GetSubresource(), false);
+#endif
+
     return D3D_OK;
   }
 
